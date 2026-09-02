@@ -7,7 +7,7 @@ app = Flask(__name__)
 # Configura os caminhos da pastas do Active Learning do projeto
 CURRENT_CONFIG = {
     "source_dir": "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/active_learning/dataset_captura",
-    "target_dir": "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/curated_dataset/dataset_trato"
+    "target_dir": "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/curated_dataset/dataset_tratado"
 }
 
 # Mapeamento de IDs de classes YOLO para nomes amigáveis
