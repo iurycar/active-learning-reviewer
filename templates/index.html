@@ -37,7 +37,7 @@
         
         <div class="flex items-center gap-3">
             <div id="counter" class="text-xs font-semibold bg-slate-800 border border-slate-700 px-4 py-1.5 rounded-full text-slate-300">
-                Carregando...
+                Aguardando seleção...
             </div>
             <button id="btnOpenConfig" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-medium text-slate-300 transition flex items-center gap-1.5">
                 📁 Pastas
@@ -74,7 +74,7 @@
     <!-- Interface Principal -->
     <div class="flex-1 flex overflow-hidden">
         
-        <!-- Menu Lateral Esquerdo: Classes -->
+        <!-- Menu Lateral Esquerdo: Classes / Desenho -->
         <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
             <div class="p-4 border-b border-slate-800">
                 <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Ferramentas de Desenho</h2>
@@ -115,6 +115,7 @@
                 </div>
             </div>
 
+            <!-- Controles de Navegação -->
             <div class="flex items-center justify-between w-full max-w-4xl mt-3 px-2">
                 <button id="btnPrev" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg font-medium text-xs transition">
                     ◀ Anterior
@@ -144,8 +145,8 @@
     </div>
 
     <script>
-        let allSamples = [];   // Armazena a totalidade das amostras lidas do backend
-        let samples = [];      // Armazena o subconjunto filtrado por intervalo
+        let totalCount = 0;
+        let samples = [];
         let classes = [];
         let currentIndex = 0;
         let currentBoxes = [];
@@ -161,16 +162,16 @@
         const HANDLE_SIZE = 8;
 
         const CLASS_PALETTE = {
-            0: [34, 197, 94],
-            1: [239, 68, 68],
-            2: [59, 130, 246],
-            3: [249, 115, 22],
-            4: [6, 182, 212],
-            5: [234, 179, 8],
-            6: [217, 70, 239],
-            7: [16, 185, 129],
-            8: [244, 63, 94],
-            9: [168, 85, 247]
+            0: [34, 197, 94],    // com_capacete: Verde
+            1: [239, 68, 68],    // sem_capacete: Vermelho
+            2: [59, 130, 246],   // com_luva: Azul
+            3: [249, 115, 22],   // sem_luva: Laranja
+            4: [6, 182, 212],    // com_oculos: Ciano
+            5: [234, 179, 8],    // com_oculos_normal: Amarelo
+            6: [217, 70, 239],   // sem_oculos: Magenta/Rosa
+            7: [16, 185, 129],   // com_mascara: Esmeralda
+            8: [244, 63, 94],    // sem_mascara: Carmesim
+            9: [168, 85, 247]    // pessoa: Roxo
         };
 
         const container = document.getElementById('canvasContainer');
@@ -200,51 +201,63 @@
             inputSource.value = cfg.source_dir;
             inputTarget.value = cfg.target_dir;
 
-            await fetchAllSamples();
+            await fetchTotalCount();
         }
 
-        async function fetchAllSamples() {
-            const res = await fetch('/api/samples');
-            allSamples = await res.json();
-            totalPhotosCount.innerText = allSamples.length;
+        async function fetchTotalCount() {
+            const res = await fetch('/api/samples/count');
+            const data = await res.json();
+            totalCount = data.total || 0;
+            totalPhotosCount.innerText = totalCount;
 
-            // Se não houver limites definidos, define por padrão todo o lote
-            if (!inputRangeStart.value) inputRangeStart.value = 1;
-            if (!inputRangeEnd.value) inputRangeEnd.value = Math.min(allSamples.length, 100);
-
-            applyRangeFilter();
+            if (totalCount > 0) {
+                if (!inputRangeStart.value) inputRangeStart.value = 1;
+                if (!inputRangeEnd.value) inputRangeEnd.value = Math.min(totalCount, 100);
+                document.getElementById('counter').innerText = `Aguardando seleção do lote (1 a ${totalCount})`;
+            } else {
+                document.getElementById('counter').innerText = "Nenhuma foto encontrada no diretório";
+            }
         }
 
-        function applyRangeFilter() {
-            if (allSamples.length === 0) {
-                samples = [];
-                document.getElementById('counter').innerText = "Nenhuma amostra na pasta";
+        async function loadBatch() {
+            if (totalCount === 0) {
+                alert("Não há fotos disponíveis na pasta configurada.");
+                return;
+            }
+
+            let start = parseInt(inputRangeStart.value);
+            let end = parseInt(inputRangeEnd.value);
+
+            if (isNaN(start) || isNaN(end) || start < 1 || end < start) {
+                alert("Por favor, preencha um intervalo válido (ex: De 1 até 100).");
+                return;
+            }
+
+            if (start > totalCount) {
+                alert(`O índice inicial (${start}) não pode ser maior que o total de fotos (${totalCount}).`);
+                return;
+            }
+
+            end = Math.min(end, totalCount);
+            inputRangeEnd.value = end;
+
+            document.getElementById('counter').innerText = `Carregando amostras ${start} até ${end}...`;
+
+            const res = await fetch(`/api/samples?start=${start}&end=${end}`);
+            samples = await res.json();
+
+            if (samples.length === 0) {
+                document.getElementById('counter').innerText = "Nenhuma foto carregada para este intervalo.";
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 document.getElementById('detectionsList').innerHTML = '';
                 document.getElementById('detCount').innerText = '0 objetos';
                 return;
             }
 
-            let start = parseInt(inputRangeStart.value) || 1;
-            let end = parseInt(inputRangeEnd.value) || allSamples.length;
-
-            start = Math.max(1, Math.min(start, allSamples.length));
-            end = Math.max(start, Math.min(end, allSamples.length));
-
-            inputRangeStart.value = start;
-            inputRangeEnd.value = end;
-
-            // Fatiamento (1-indexed para 0-indexed)
-            samples = allSamples.slice(start - 1, end);
             loadSample(0);
         }
 
-        document.getElementById('btnApplyRange').onclick = applyRangeFilter;
-        document.getElementById('btnResetRange').onclick = () => {
-            inputRangeStart.value = 1;
-            inputRangeEnd.value = allSamples.length;
-            applyRangeFilter();
-        };
+        document.getElementById('btnApplyRange').onclick = loadBatch;
 
         // Modal de Pastas
         document.getElementById('btnOpenConfig').onclick = () => modal.classList.remove('hidden');
@@ -264,7 +277,11 @@
             const data = await res.json();
             if (res.ok) {
                 modal.classList.add('hidden');
-                await fetchAllSamples();
+                samples = [];
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                document.getElementById('detectionsList').innerHTML = '';
+                document.getElementById('detCount').innerText = '0 objetos';
+                await fetchTotalCount();
             } else {
                 alert(data.error || "Erro ao salvar diretórios");
             }
@@ -308,7 +325,7 @@
             currentIndex = index;
             unselectBox();
             
-            document.getElementById('counter').innerText = `Foto ${currentIndex + 1} de ${samples.length} selecionadas (${samples[currentIndex].image_file})`;
+            document.getElementById('counter').innerText = `Foto ${currentIndex + 1} de ${samples.length} carregadas (${samples[currentIndex].image_file})`;
 
             const resBoxes = await fetch(`/api/labels/${samples[currentIndex].label_file}`);
             currentBoxes = await resBoxes.json();
@@ -352,6 +369,7 @@
                 ctx.strokeStyle = isSelected ? '#f59e0b' : `rgb(${r}, ${g}, ${bColor})`;
                 ctx.strokeRect(x, y, w, h);
 
+                // Tarja apenas com o identificador numérico
                 const boxIndex = currentBoxes.indexOf(b) + 1;
                 const labelText = `#${boxIndex}`;
                 ctx.font = 'bold 11px sans-serif';
@@ -501,7 +519,7 @@
                         y_center: (minY + h / 2) / canvas.height,
                         width: w / canvas.width,
                         height: h / canvas.height,
-                        confidence: 1.0, // Criada manualmente
+                        confidence: 1.0,
                         valid: true
                     };
                     currentBoxes.push(newBox);
@@ -653,15 +671,15 @@
                 })
             });
 
-            // Remove da lista filtrada e da lista mestra
-            const masterIdx = allSamples.findIndex(s => s.id === sample.id);
-            if (masterIdx !== -1) allSamples.splice(masterIdx, 1);
             samples.splice(currentIndex, 1);
-
-            totalPhotosCount.innerText = allSamples.length;
+            totalCount = Math.max(0, totalCount - 1);
+            totalPhotosCount.innerText = totalCount;
 
             if (samples.length === 0) {
-                await fetchAllSamples();
+                document.getElementById('counter').innerText = "Lote concluído! Selecione um novo intervalo acima.";
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                document.getElementById('detectionsList').innerHTML = '';
+                document.getElementById('detCount').innerText = '0 objetos';
             } else {
                 loadSample(Math.min(currentIndex, samples.length - 1));
             }
@@ -675,14 +693,15 @@
                 const sample = samples[currentIndex];
                 await fetch(`/api/sample/${sample.id}`, { method: 'DELETE' });
 
-                const masterIdx = allSamples.findIndex(s => s.id === sample.id);
-                if (masterIdx !== -1) allSamples.splice(masterIdx, 1);
                 samples.splice(currentIndex, 1);
-
-                totalPhotosCount.innerText = allSamples.length;
+                totalCount = Math.max(0, totalCount - 1);
+                totalPhotosCount.innerText = totalCount;
 
                 if (samples.length === 0) {
-                    await fetchAllSamples();
+                    document.getElementById('counter').innerText = "Lote concluído! Selecione um novo intervalo acima.";
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    document.getElementById('detectionsList').innerHTML = '';
+                    document.getElementById('detCount').innerText = '0 objetos';
                 } else {
                     loadSample(Math.min(currentIndex, samples.length - 1));
                 }

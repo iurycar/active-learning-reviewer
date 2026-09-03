@@ -73,25 +73,45 @@ def get_classes():
 
 @app.route('/api/samples', methods=['GET'])
 def list_samples():
+    """
+    Retorna apenas a fatia solicitada pelo usuário (start e end).
+    Se não informados, retorna uma lista vazia para evitar sobrecarga.
+    """
+    start = request.args.get('start', type=int)
+    end = request.args.get('end', type=int)
+
+    if start is None or end is None:
+        return jsonify([])
+
     img_dir, lbl_dir = get_source_paths()
     if not os.path.exists(img_dir):
         return jsonify([])
 
     valid_exts = ('.jpg', '.jpeg', '.png')
+    
+    # Lista e ordena os nomes de arquivos no disco
+    all_files = sorted([
+        file for file in os.listdir(img_dir)
+        if file.lower().endswith(valid_exts)
+    ])
+
+    # Normaliza limites (1-indexed)
+    start_idx = max(0, start - 1)
+    end_idx = max(start_idx, end)
+    sliced_files = all_files[start_idx:end_idx]
+
     samples = []
+    for fname in sliced_files:
+        base_name = os.path.splitext(fname)[0]
+        label_file = f"{base_name}.txt"
+        label_path = os.path.join(lbl_dir, label_file)
 
-    for fname in sorted(os.listdir(img_dir)):
-        if fname.lower().endswith(valid_exts):
-            base_name = os.path.splitext(fname)[0]
-            label_file = f"{base_name}.txt"
-            label_path = os.path.join(lbl_dir, label_file)
-
-            if os.path.exists(label_path):
-                samples.append({
-                    "id": base_name,
-                    "image_file": fname,
-                    "label_file": label_file
-                })
+        if os.path.exists(label_path):
+            samples.append({
+                "id": base_name,
+                "image_file": fname,
+                "label_file": label_file
+            })
 
     return jsonify(samples)
 
