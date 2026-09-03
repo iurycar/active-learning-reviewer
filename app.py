@@ -21,12 +21,11 @@ def load_config():
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
             data = yaml.safe_load(f)
-            # Configura os caminhos da pastas do Active Learning do projeto
+            # Configura os caminhos de origem e destino com base no arquivo YAML
             CURRENT_CONFIG["source_dir"] = data.get("path_captured", CURRENT_CONFIG["source_dir"])
             CURRENT_CONFIG["target_dir"] = data.get("path_cured", CURRENT_CONFIG["target_dir"])
 
             CLASS_NAMES.update(data.get("classes", {}))
-
 
 def get_source_paths():
     src = CURRENT_CONFIG["source_dir"]
@@ -58,7 +57,7 @@ def manage_config():
         CURRENT_CONFIG["source_dir"] = new_source
         CURRENT_CONFIG["target_dir"] = new_target
 
-        # Garante criação das pastas de destino se não existirem
+        # Garante a criação das pastas de destino, caso não existam
         tgt_img, tgt_lbl = get_target_paths()
         os.makedirs(tgt_img, exist_ok=True)
         os.makedirs(tgt_lbl, exist_ok=True)
@@ -74,7 +73,7 @@ def get_classes():
 @app.route('/api/samples/count', methods=['GET'])
 def get_samples_count():
     """Retorna apenas o total de imagens válidas sem carregar tudo na memória."""
-
+    
     img_dir, lbl_dir = get_source_paths()
 
     if not os.path.exists(img_dir):
@@ -100,11 +99,7 @@ def get_samples_count():
 
 @app.route('/api/samples', methods=['GET'])
 def list_samples():
-    """
-    Retorna apenas a fatia solicitada pelo usuário (start e end).
-    Se não informados, retorna uma lista vazia para evitar sobrecarga.
-    """
-
+    """Retorna apenas a fatia solicitada pelo usuário (start e end)."""
     start = request.args.get('start', type=int)
     end = request.args.get('end', type=int)
 
@@ -116,14 +111,13 @@ def list_samples():
         return jsonify([])
 
     valid_exts = ('.jpg', '.jpeg', '.png')
-    
-    # Lista e ordena os nomes de arquivos no disco
+
+    # Lista e ordena os arquivos de imagem válidos
     all_files = sorted([
         file for file in os.listdir(img_dir)
         if file.lower().endswith(valid_exts)
     ])
 
-    # Normaliza limites (1-indexed)
     start_idx = max(0, start - 1)
     end_idx = max(start_idx, end)
     sliced_files = all_files[start_idx:end_idx]
@@ -145,13 +139,16 @@ def list_samples():
 
 @app.route('/api/image/<filename>', methods=['GET'])
 def get_image(filename):
+    """Serve a imagem com cache HTTP ativo de 24 horas para evitar requisições repetidas."""
+
     img_dir, _ = get_source_paths()
     filepath = os.path.join(img_dir, filename)
 
     if not os.path.exists(filepath):
         return "Imagem não encontrada", 404
 
-    return send_file(filepath, mimetype='image/jpeg')
+    # max_age=86400 (24h) instrui o navegador a manter em cache local no disco
+    return send_file(filepath, mimetype='image/jpeg', max_age=86400)
 
 @app.route('/api/labels/<filename>', methods=['GET'])
 def get_labels(filename):
@@ -161,6 +158,7 @@ def get_labels(filename):
         return jsonify([])
 
     boxes = []
+
     with open(filepath, 'r') as f:
         for idx, line in enumerate(f.readlines()):
             line_str = line.strip()
@@ -168,7 +166,7 @@ def get_labels(filename):
                 continue
 
             conf_val = None
-            # Trata o formato: "cls x y w h : conf"
+
             if ':' in line_str:
                 parts_coords, parts_conf = line_str.split(':', 1)
                 coords = parts_coords.strip().split()
@@ -233,7 +231,7 @@ def save_and_move():
 
 @app.route('/api/sample/<base_name>', methods=['DELETE'])
 def delete_sample(base_name):
-
+    
     src_img_dir, src_lbl_dir = get_source_paths()
     img_path = os.path.join(src_img_dir, f"{base_name}.jpg")
     lbl_path = os.path.join(src_lbl_dir, f"{base_name}.txt")
@@ -248,5 +246,4 @@ def delete_sample(base_name):
 
 if __name__ == '__main__':
     load_config()
-
     app.run(host='0.0.0.0', port=5001, debug=True)
