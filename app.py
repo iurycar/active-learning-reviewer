@@ -69,7 +69,34 @@ def manage_config():
 
 @app.route('/api/classes', methods=['GET'])
 def get_classes():
-    return jsonify([{"id": k, "name": v} for k, v in CLASS_NAMES.items()])
+    return jsonify([{"id": key, "name": value} for key, value in CLASS_NAMES.items()])
+
+@app.route('/api/samples/count', methods=['GET'])
+def get_samples_count():
+    """Retorna apenas o total de imagens válidas sem carregar tudo na memória."""
+
+    img_dir, lbl_dir = get_source_paths()
+
+    if not os.path.exists(img_dir):
+        return jsonify({"total": 0})
+
+    valid_exts = ('.jpg', '.jpeg', '.png')
+    count = 0
+
+    try:
+        for filename in os.scandir(img_dir):
+
+            if filename.is_file() and filename.name.lower().endswith(valid_exts):
+                base_name = os.path.splitext(filename.name)[0]
+                label_path = os.path.join(lbl_dir, f"{base_name}.txt")
+
+                if os.path.exists(label_path):
+                    count += 1
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"total": count})
 
 @app.route('/api/samples', methods=['GET'])
 def list_samples():
@@ -77,6 +104,7 @@ def list_samples():
     Retorna apenas a fatia solicitada pelo usuário (start e end).
     Se não informados, retorna uma lista vazia para evitar sobrecarga.
     """
+
     start = request.args.get('start', type=int)
     end = request.args.get('end', type=int)
 
