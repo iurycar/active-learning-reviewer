@@ -1,28 +1,32 @@
 from flask import Flask, render_template, jsonify, send_file, request
 import shutil
+import yaml
 import os
 
 app = Flask(__name__)
 
-# Configura os caminhos da pastas do Active Learning do projeto
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 CURRENT_CONFIG = {
-    "source_dir": "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/active_learning/dataset_captura",
-    "target_dir": "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/curated_dataset/dataset_tratado"
+    "source_dir": os.path.join(BASE_DIR, "active-learning-reviewer/data/captured"),
+    "target_dir": os.path.join(BASE_DIR, "active-learning-reviewer/data/cured")
 }
 
-# Mapeamento de IDs de classes YOLO para nomes amigáveis
-CLASS_NAMES = {
-    0: "Pessoa",
-    1: "Com_luva",
-    2: "Com_oculos",
-    3: "Com_capacete",
-    4: "Com_oculos_normal",
-    5: "Com_mascara",
-    6: "Sem_luva",
-    7: "Sem_oculos",
-    8: "Sem_capacete",
-    9: "Sem_mascara"
-}
+CLASS_NAMES = {}
+
+def load_config():
+    """Carrega a configuração do arquivo YAML, se existir."""
+    config_path = os.path.join(BASE_DIR, "config.yaml")
+
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            data = yaml.safe_load(f)
+            # Configura os caminhos da pastas do Active Learning do projeto
+            CURRENT_CONFIG["source_dir"] = data.get("path_captured", CURRENT_CONFIG["source_dir"])
+            CURRENT_CONFIG["target_dir"] = data.get("path_cured", CURRENT_CONFIG["target_dir"])
+
+            CLASS_NAMES.update(data.get("classes", {}))
+
 
 def get_source_paths():
     src = CURRENT_CONFIG["source_dir"]
@@ -39,6 +43,7 @@ def index():
 @app.route('/api/config', methods=['GET', 'POST'])
 def manage_config():
     """Lê ou atualiza as pastas configuradas dinamicamente."""
+
     if request.method == 'POST':
         data = request.json or {}
         new_source = data.get("source_dir", "").strip()
@@ -87,14 +92,17 @@ def list_samples():
                     "image_file": fname,
                     "label_file": label_file
                 })
+
     return jsonify(samples)
 
 @app.route('/api/image/<filename>', methods=['GET'])
 def get_image(filename):
     img_dir, _ = get_source_paths()
     filepath = os.path.join(img_dir, filename)
+
     if not os.path.exists(filepath):
         return "Imagem não encontrada", 404
+
     return send_file(filepath, mimetype='image/jpeg')
 
 @app.route('/api/labels/<filename>', methods=['GET'])
@@ -107,17 +115,33 @@ def get_labels(filename):
     boxes = []
     with open(filepath, 'r') as f:
         for idx, line in enumerate(f.readlines()):
-            parts = line.strip().split()
-            if len(parts) == 5:
-                cls_id = int(parts[0])
+            line_str = line.strip()
+            if not line_str:
+                continue
+
+            conf_val = None
+            # Trata o formato: "cls x y w h : conf"
+            if ':' in line_str:
+                parts_coords, parts_conf = line_str.split(':', 1)
+                coords = parts_coords.strip().split()
+                try:
+                    conf_val = float(parts_conf.strip())
+                except ValueError:
+                    conf_val = None
+            else:
+                coords = line_str.split()
+
+            if len(coords) >= 5:
+                cls_id = int(coords[0])
                 boxes.append({
                     "box_id": idx,
                     "class_id": cls_id,
                     "class_name": CLASS_NAMES.get(cls_id, f"Classe {cls_id}"),
-                    "x_center": float(parts[1]),
-                    "y_center": float(parts[2]),
-                    "width": float(parts[3]),
-                    "height": float(parts[4]),
+                    "x_center": float(coords[1]),
+                    "y_center": float(coords[2]),
+                    "width": float(coords[3]),
+                    "height": float(coords[4]),
+                    "confidence": conf_val,
                     "valid": True
                 })
     return jsonify(boxes)
@@ -161,14 +185,20 @@ def save_and_move():
 
 @app.route('/api/sample/<base_name>', methods=['DELETE'])
 def delete_sample(base_name):
+
     src_img_dir, src_lbl_dir = get_source_paths()
     img_path = os.path.join(src_img_dir, f"{base_name}.jpg")
     lbl_path = os.path.join(src_lbl_dir, f"{base_name}.txt")
+
     if os.path.exists(img_path):
         os.remove(img_path)
+
     if os.path.exists(lbl_path):
         os.remove(lbl_path)
+    
     return jsonify({"status": "removido"})
 
 if __name__ == '__main__':
+    load_config()
+
     app.run(host='0.0.0.0', port=5001, debug=True)
