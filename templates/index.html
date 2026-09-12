@@ -103,81 +103,58 @@
         </aside>
 
         <!-- Canvas Central -->
-        <main class="flex-1 flex flex-col p-3 overflow-hidden items-center justify-between bg-neutral-100 dark:bg-black min-h-0">
-            <!-- Barra de Zoom & Encaixe -->
-            <div class="flex items-center gap-2 mb-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-3 py-1.5 rounded-lg shadow-sm flex-shrink-0">
-                <button id="btnZoomOut" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded transition">
-                    🔍 -
-                </button>
-                <span id="zoomLevelDisplay" class="text-xs font-mono text-neutral-600 dark:text-neutral-400 min-w-[48px] text-center">100%</span>
-                <button id="btnZoomIn" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded transition">
-                    🔍 +
-                </button>
-                <span class="text-neutral-300 dark:text-neutral-700">|</span>
-                <button id="btnFitScreen" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition">
-                    ⛶ Ajustar ao Display
-                </button>
-                <button id="btnResetZoom" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition">
-                    1:1
-                </button>
-            </div>
-
-            <!-- Área com rolagem quando o zoom excede o display -->
-            <div id="viewportWrapper" class="flex-1 w-full overflow-auto flex items-center justify-center min-h-0 p-2">
-                <div id="canvasContainer" class="rounded-xl border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-2xl p-1 flex items-center justify-center">
-                    <canvas id="viewport" class="rounded-lg block cursor-default"></canvas>
+            <main class="flex-1 flex flex-col p-3 overflow-hidden items-center justify-between bg-neutral-100 dark:bg-black min-h-0 select-none">
+        
+                <!-- 1. Topo: Zoom & Pan -->
+                <div class="flex items-center gap-2 mb-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-3 py-1.5 rounded-lg shadow-sm flex-shrink-0 z-10">
+                    <button id="btnZoomOut" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded transition">🔍 -</button>
+                    <span id="zoomLevelDisplay" class="text-xs font-mono text-neutral-600 dark:text-neutral-400 min-w-[48px] text-center">100%</span>
+                    <button id="btnZoomIn" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded transition">🔍 +</button>
+                    <span class="text-neutral-300 dark:text-neutral-700">|</span>
+                    <button id="btnFitScreen" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition">⛶ Ajustar</button>
+                    <button id="btnResetZoom" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition">1:1</button>
+                    <span class="text-neutral-300 dark:text-neutral-700">|</span>
+                    <button id="btnPanTool" title="Mover Imagem (Segure Espaço)" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition flex items-center gap-1">
+                        ✋ <span>Mover</span>
+                    </button>
                 </div>
-            </div>
 
-            <!-- Barra Inferior Compacta e Padronizada -->
-            <div class="flex items-center justify-between w-full max-w-5xl mt-2 px-3 flex-shrink-0">
-                <!-- Navegação: Anterior -->
-                <button id="btnPrev" class="h-9 px-3.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
-                    ◀ Anterior
-                </button>
+                <!-- 2. Meio -->
+                <div id="viewportWrapper" class="flex-1 w-full overflow-hidden flex items-center justify-center min-h-0 p-1 relative">
+                    <canvas id="viewport" class="block w-full h-full cursor-default rounded-xl border border-neutral-300 dark:border-neutral-800 bg-neutral-950 shadow-2xl"></canvas>
+                </div>
 
-                <!-- Centro: Opções de Split + Ações -->
-                <div class="flex items-center gap-2">
-                    <!-- Toggle Auto Split -->
-                    <label class="h-9 flex items-center gap-2 px-3 bg-neutral-200 dark:bg-neutral-800/80 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium cursor-pointer select-none whitespace-nowrap">
-                        <input type="checkbox" id="chkAutoValidation" checked class="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-0 cursor-pointer">
-                        <span class="text-neutral-700 dark:text-neutral-300">Auto Split (20%)</span>
-                    </label>
+                <!-- 3. Base: Barra Inferior presa na parte inferior pelo justify-between -->
+                <div class="flex items-center justify-between w-full max-w-5xl mt-2 px-2 flex-shrink-0 z-10">
+                    <button id="btnPrev" class="h-9 px-3.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                        ◀ Anterior
+                    </button>
 
-                    <!-- Seletor Manual (Treino / Validação) -->
-                    <div id="manualSplitSelector" class="hidden h-9 items-center bg-neutral-200 dark:bg-neutral-800 p-1 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium">
-                        <button id="btnSelectTrain" type="button" class="h-full px-2.5 rounded-md bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-xs font-semibold shadow-sm transition">
-                            Treino
-                        </button>
-                        <button id="btnSelectVal" type="button" class="h-full px-2.5 rounded-md text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs transition">
-                            Validação
+                    <div class="flex items-center gap-2">
+                        <label class="h-9 flex items-center gap-2 px-3 bg-neutral-200 dark:bg-neutral-800/80 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium cursor-pointer select-none whitespace-nowrap">
+                            <input type="checkbox" id="chkAutoValidation" checked class="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-0 cursor-pointer">
+                            <span class="text-neutral-700 dark:text-neutral-300">Auto Split (20%)</span>
+                        </label>
+
+                        <div id="manualSplitSelector" class="hidden h-9 items-center bg-neutral-200 dark:bg-neutral-800 p-1 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium">
+                            <button id="btnSelectTrain" type="button" class="h-full px-2.5 rounded-md bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-xs font-semibold shadow-sm transition">Treino</button>
+                            <button id="btnSelectVal" type="button" class="h-full px-2.5 rounded-md text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs transition">Validação</button>
+                        </div>
+
+                        <span class="h-5 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-1"></span>
+
+                        <button id="btnDescartarAmostra" class="h-9 px-3 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs font-medium transition whitespace-nowrap">Descartar</button>
+                        <button id="btnSalvarAvancar" class="h-9 px-3.5 bg-neutral-800 hover:bg-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white rounded-lg text-xs font-semibold transition shadow-sm whitespace-nowrap">Salvar ▶</button>
+                        <button id="btnSalvarComAugment" class="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-sm whitespace-nowrap flex items-center gap-1.5">
+                            <span>✨ Salvar + Augment</span>
                         </button>
                     </div>
 
-                    <span class="h-5 w-[1px] bg-neutral-300 dark:bg-neutral-800 mx-1"></span>
-
-                    <!-- Descartar -->
-                    <button id="btnDescartarAmostra" class="h-9 px-3 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs font-medium transition whitespace-nowrap">
-                        Descartar
-                    </button>
-
-                    <!-- Salvar e Mover -->
-                    <button id="btnSalvarAvancar" class="h-9 px-3.5 bg-neutral-800 hover:bg-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-white rounded-lg text-xs font-semibold transition shadow-sm whitespace-nowrap">
-                        Salvar ▶
-                    </button>
-
-                    <!-- Salvar com Augment -->
-                    <button id="btnSalvarComAugment" class="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition shadow-sm whitespace-nowrap flex items-center gap-1.5">
-                        <span>✨ Salvar + Augment</span>
+                    <button id="btnNext" class="h-9 px-3.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                        Próximo ▶
                     </button>
                 </div>
-
-                <!-- Navegação: Próximo -->
-                <button id="btnNext" class="h-9 px-3.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
-                    Próximo ▶
-                </button>
-            </div>
-        </main>
+            </main>
 
         <!-- Menu Lateral Direito: Detecções com Troca de Classe e Exclusão -->
         <aside class="w-80 bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 flex flex-col flex-shrink-0">
@@ -189,6 +166,6 @@
         </aside>
     </div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
