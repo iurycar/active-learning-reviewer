@@ -200,6 +200,7 @@ def save_and_move():
     image_file = dados.get("image_file")
     label_file = dados.get("label_file")
     boxes = dados.get("boxes", [])
+    aplicar_augmentation = dados.get("apply_augmentation", False)
 
     # Recebe os diretórios de origem e destino das imagens e labels
     src_img_dir, src_lbl_dir = get_source_paths()
@@ -238,13 +239,15 @@ def save_and_move():
     if os.path.exists(src_lbl):
         os.remove(src_lbl)
 
-    generate_augmented_copies(
-        img_path=dest_img, 
-        boxes=boxes, 
-        dir_output_img=tgt_img_dir, 
-        dir_output_lbl=tgt_lbl_dir, 
-        base_name=base_name
-    )
+    # Executa a geração de cópias se solicitado pelo usuário
+    if aplicar_augmentation:
+        generate_augmented_copies(
+            img_path=dest_img, 
+            boxes=boxes, 
+            dir_output_img=tgt_img_dir, 
+            dir_output_lbl=tgt_lbl_dir, 
+            base_name=base_name
+        )
 
     return jsonify({"status": "sucesso"})
 

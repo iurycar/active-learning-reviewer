@@ -724,36 +724,60 @@ function renderSidebar() {
     });
 }
 
-document.getElementById('btnSalvarAvancar').onclick = async () => {
+async function handleSaveAndAdvance(applyAugmentation = false) {
     if (samples.length === 0) return;
     const sample = samples[currentIndex];
 
-    await fetch('/api/save-and-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            id: sample.id,
-            image_file: sample.image_file,
-            label_file: sample.label_file,
-            boxes: currentBoxes
-        })
-    });
-
-    imageMemoryCache.delete(sample.image_file);
-
-    samples.splice(currentIndex, 1);
-    totalCount = Math.max(0, totalCount - 1);
-    totalPhotosCount.innerText = totalCount;
-
-    if (samples.length === 0) {
-        document.getElementById('counter').innerText = "Lote concluído! Selecione um novo intervalo acima.";
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        document.getElementById('detectionsList').innerHTML = '';
-        document.getElementById('detCount').innerText = '0 objetos';
-    } else {
-        loadSample(Math.min(currentIndex, samples.length - 1));
+    // Opcional: feedback visual de carregamento no botão
+    const btnAug = document.getElementById('btnSalvarComAugment');
+    const originalText = btnAug.innerText;
+    if (applyAugmentation) {
+        btnAug.innerText = 'Processando...';
+        btnAug.disabled = true;
     }
-};
+
+    try {
+        await fetch('/api/save-and-move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: sample.id,
+                image_file: sample.image_file,
+                label_file: sample.label_file,
+                boxes: currentBoxes,
+                apply_augmentation: applyAugmentation
+            })
+        });
+
+        imageMemoryCache.delete(sample.image_file);
+        samples.splice(currentIndex, 1);
+        totalCount = Math.max(0, totalCount - 1);
+        totalPhotosCount.innerText = totalCount;
+
+        if (samples.length === 0) {
+            document.getElementById('counter').innerText = "Lote concluído! Selecione um novo intervalo acima.";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('detectionsList').innerHTML = '';
+            document.getElementById('detCount').innerText = '0 objetos';
+        } else {
+            loadSample(Math.min(currentIndex, samples.length - 1));
+        }
+    } catch (err) {
+        console.error("Erro ao salvar amostra:", err);
+        alert("Erro ao salvar amostra.");
+    } finally {
+        if (applyAugmentation) {
+            btnAug.innerText = originalText;
+            btnAug.disabled = false;
+        }
+    }
+}
+
+// Botão normal: apenas move a imagem e salva anotações
+document.getElementById('btnSalvarAvancar').onclick = () => handleSaveAndAdvance(false);
+
+// Novo botão: move a imagem e executa o pipeline de transformações
+document.getElementById('btnSalvarComAugment').onclick = () => handleSaveAndAdvance(true);
 
 document.getElementById('btnPrev').onclick = () => { if (currentIndex > 0) loadSample(currentIndex - 1); };
 document.getElementById('btnNext').onclick = () => { if (currentIndex < samples.length - 1) loadSample(currentIndex + 1); };
