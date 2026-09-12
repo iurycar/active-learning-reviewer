@@ -422,10 +422,18 @@ function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
-    };
+
+    // Converte a posição do cliente para o sistema de coordenadas do canvas
+    let x = (e.clientX - rect.left) * scaleX;
+    let y = (e.clientY - rect.top) * scaleY;
+
+    // Se estiver desenhando, arrastando ou redimensionando, prende (clamp) as coordenadas nos limites da imagem
+    if (isDrawing || isDraggingBox || activeHandle) {
+        x = Math.max(0, Math.min(canvas.width, x));
+        y = Math.max(0, Math.min(canvas.height, y));
+    }
+
+    return { x, y };
 }
 
 function getHandleUnderMouse(pos, b) {
@@ -465,8 +473,6 @@ canvas.addEventListener('mousedown', (e) => {
     const hit = getBoxAt(pos);
     if (hit) {
         selectBox(hit);
-
-        // Configura movimentação da caixa
         isDraggingBox = true;
         const coords = getBoxCoords(hit);
         dragOffset = {
@@ -478,7 +484,32 @@ canvas.addEventListener('mousedown', (e) => {
     }
 });
 
-canvas.addEventListener('mousemove', (e) => {
+window.addEventListener('mousemove', (e) => {
+    // Se nenhuma ação estiver ativa, apenas checa hover/cursores se o mouse estiver sobre o canvas
+    if (!isDrawing && !isDraggingBox && !activeHandle) {
+        if (e.target === canvas) {
+            const pos = getMousePos(e);
+            if (selectedBox) {
+                const handle = getHandleUnderMouse(pos, selectedBox);
+                if (handle) {
+                    canvas.style.cursor = (handle === 'tl' || handle === 'br') ? 'nwse-resize' : 'nesw-resize';
+                    return;
+                }
+            }
+
+            if (!selectedClassForDrawing) {
+                const hit = getBoxAt(pos);
+                canvas.style.cursor = hit ? (selectedBox && selectedBox.box_id === hit.box_id ? 'move' : 'pointer') : 'default';
+
+                if (!selectedBox && hit !== hoveredBox) {
+                    hoveredBox = hit;
+                    renderCanvas();
+                }
+            }
+        }
+        return;
+    }
+
     const pos = getMousePos(e);
 
     if (activeHandle && selectedBox) {
@@ -502,33 +533,10 @@ canvas.addEventListener('mousemove', (e) => {
         ctx.setLineDash([4, 4]);
         ctx.strokeRect(drawStart.x, drawStart.y, curW, curH);
         ctx.setLineDash([]);
-        return;
-    }
-
-    if (selectedBox) {
-        const handle = getHandleUnderMouse(pos, selectedBox);
-        if (handle) {
-            canvas.style.cursor = (handle === 'tl' || handle === 'br') ? 'nwse-resize' : 'nesw-resize';
-            return;
-        }
-    }
-
-    if (!selectedClassForDrawing) {
-        const hit = getBoxAt(pos);
-        if (hit) {
-            canvas.style.cursor = selectedBox && selectedBox.box_id === hit.box_id ? 'move' : 'pointer';
-        } else {
-            canvas.style.cursor = 'default';
-        }
-
-        if (!selectedBox && hit !== hoveredBox) {
-            hoveredBox = hit;
-            renderCanvas();
-        }
     }
 });
 
-canvas.addEventListener('mouseup', (e) => {
+window.addEventListener('mouseup', (e) => {
     if (activeHandle) {
         activeHandle = null;
         renderSidebar();
@@ -551,7 +559,7 @@ canvas.addEventListener('mouseup', (e) => {
         const w = maxX - minX;
         const h = maxY - minY;
 
-        if (w > 10 && h > 10) {
+        if (w > 10 && h > 10 && selectedClassForDrawing) {
             const newBox = {
                 box_id: Date.now(),
                 class_id: selectedClassForDrawing.id,
@@ -560,7 +568,7 @@ canvas.addEventListener('mouseup', (e) => {
                 y_center: (minY + h / 2) / canvas.height,
                 width: w / canvas.width,
                 height: h / canvas.height,
-                confidence: null, // Sem porcentagem para caixas manuais
+                confidence: null,
                 valid: true
             };
             currentBoxes.push(newBox);
