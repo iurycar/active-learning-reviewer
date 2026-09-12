@@ -11,7 +11,6 @@
     </script>
     <style>
         #canvasContainer { position: relative; display: inline-block; }
-        #actionTooltip { position: absolute; display: none; z-index: 50; pointer-events: auto; }
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: none; border-radius: 9999px; }
     </style>
@@ -19,7 +18,7 @@
 <body class="bg-neutral-100 dark:bg-black text-neutral-800 dark:text-neutral-100 min-h-screen flex flex-col font-sans select-none overflow-hidden transition-colors">
 
     <!-- Topbar -->
-    <header class="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-6 py-2.5 flex justify-between items-center z-10 shadow-sm">
+    <header class="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 px-6 py-2.5 flex justify-between items-center z-10 shadow-sm flex-shrink-0">
         <div class="flex items-center gap-3">
             <span class="w-3 h-3 bg-neutral-400 dark:bg-neutral-300 rounded-full animate-pulse"></span>
             <h1 class="text-sm font-bold tracking-wide text-neutral-900 dark:text-white uppercase">Curadoria de Active Learning</h1>
@@ -85,7 +84,7 @@
     <div class="flex-1 flex overflow-hidden">
         
         <!-- Menu Lateral Esquerdo: Classes / Desenho -->
-        <aside class="w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex flex-col">
+        <aside class="w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex flex-col flex-shrink-0">
             <div class="p-4 border-b border-neutral-200 dark:border-neutral-800">
                 <h2 class="text-xs font-bold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Ferramentas de Desenho</h2>
                 <p class="text-[11px] text-neutral-500 mt-1">Selecione uma classe para desenhar ou selecione para mover/redimensionar.</p>
@@ -104,29 +103,34 @@
         </aside>
 
         <!-- Canvas Central -->
-        <main class="flex-1 flex flex-col p-4 overflow-auto items-center justify-between bg-neutral-100 dark:bg-black">
-            <div id="canvasContainer" class="rounded-xl border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-2xl p-1">
-                <canvas id="viewport" class="rounded-lg block max-w-full h-auto cursor-default"></canvas>
-                
-                <!-- Tooltip flutuante -->
-                <div id="actionTooltip" class="bg-white/95 dark:bg-neutral-900/95 backdrop-blur border border-neutral-200 dark:border-neutral-700 rounded-lg p-2.5 shadow-2xl flex flex-col gap-2 transition-opacity">
-                    <div class="flex items-center justify-between gap-3">
-                        <span id="tooltipClassName" class="text-xs font-bold text-amber-500 tracking-wider">CLASSE</span>
-                        <span id="tooltipConf" class="text-[10px] px-1.5 py-0.5 rounded bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 font-mono font-bold">--</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <button id="btnCorreto" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded shadow">
-                            ✓ Manter
-                        </button>
-                        <button id="btnIncorreto" class="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded shadow">
-                            ✕ Apagar
-                        </button>
-                    </div>
+        <main class="flex-1 flex flex-col p-3 overflow-hidden items-center justify-between bg-neutral-100 dark:bg-black min-h-0">
+            <!-- Barra de Zoom & Encaixe -->
+            <div class="flex items-center gap-2 mb-2 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-3 py-1.5 rounded-lg shadow-sm flex-shrink-0">
+                <button id="btnZoomOut" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded transition">
+                    🔍 -
+                </button>
+                <span id="zoomLevelDisplay" class="text-xs font-mono text-neutral-600 dark:text-neutral-400 min-w-[48px] text-center">100%</span>
+                <button id="btnZoomIn" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-bold rounded transition">
+                    🔍 +
+                </button>
+                <span class="text-neutral-300 dark:text-neutral-700">|</span>
+                <button id="btnFitScreen" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition">
+                    ⛶ Ajustar ao Display
+                </button>
+                <button id="btnResetZoom" class="px-3 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 text-xs font-semibold rounded transition">
+                    1:1
+                </button>
+            </div>
+
+            <!-- Área com rolagem quando o zoom excede o display -->
+            <div id="viewportWrapper" class="flex-1 w-full overflow-auto flex items-center justify-center min-h-0 p-2">
+                <div id="canvasContainer" class="rounded-xl border border-neutral-300 dark:border-neutral-800 bg-white dark:bg-neutral-950 shadow-2xl p-1 flex items-center justify-center">
+                    <canvas id="viewport" class="rounded-lg block cursor-default"></canvas>
                 </div>
             </div>
 
             <!-- Controles de Navegação -->
-            <div class="flex items-center justify-between w-full max-w-4xl mt-3 px-2">
+            <div class="flex items-center justify-between w-full max-w-4xl mt-2 px-2 flex-shrink-0">
                 <button id="btnPrev" class="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg font-medium text-xs transition">
                     ◀ Anterior
                 </button>
@@ -144,8 +148,8 @@
             </div>
         </main>
 
-        <!-- Menu Lateral Direito: Detecções -->
-        <aside class="w-72 bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 flex flex-col">
+        <!-- Menu Lateral Direito: Detecções com Troca de Classe e Exclusão -->
+        <aside class="w-80 bg-white dark:bg-neutral-900 border-l border-neutral-200 dark:border-neutral-800 flex flex-col flex-shrink-0">
             <div class="p-4 border-b border-neutral-200 dark:border-neutral-800">
                 <h2 class="text-xs font-bold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Detecções no Frame</h2>
                 <span id="detCount" class="text-[11px] text-neutral-500">0 objetos</span>

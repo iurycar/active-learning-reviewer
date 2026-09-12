@@ -18,6 +18,12 @@ let drawStart = { x: 0, y: 0 };
 let activeHandle = null;
 const HANDLE_SIZE = 8;
 
+// Controle de Zoom
+let currentZoom = 1.0;
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 2.0;
+const ZOOM_STEP = 0.15;
+
 const DEFAULT_PALETTE = {
     0: [34, 197, 94],
     1: [239, 68, 68],
@@ -34,13 +40,18 @@ const DEFAULT_PALETTE = {
 const customColors = JSON.parse(localStorage.getItem('custom_class_colors') || '{}');
 
 const container = document.getElementById('canvasContainer');
+const viewportWrapper = document.getElementById('viewportWrapper');
 const canvas = document.getElementById('viewport');
 const ctx = canvas.getContext('2d');
-const tooltip = document.getElementById('actionTooltip');
-const tooltipLabel = document.getElementById('tooltipClassName');
-const tooltipConf = document.getElementById('tooltipConf');
 const classListEl = document.getElementById('classList');
 const btnCursorMode = document.getElementById('btnCursorMode');
+
+// Elementos de Zoom
+const zoomLevelDisplay = document.getElementById('zoomLevelDisplay');
+const btnZoomIn = document.getElementById('btnZoomIn');
+const btnZoomOut = document.getElementById('btnZoomOut');
+const btnFitScreen = document.getElementById('btnFitScreen');
+const btnResetZoom = document.getElementById('btnResetZoom');
 
 const totalPhotosCount = document.getElementById('totalPhotosCount');
 const inputRangeStart = document.getElementById('inputRangeStart');
@@ -86,6 +97,55 @@ function getClassColor(classId) {
     if (customColors[classId]) return customColors[classId];
     return DEFAULT_PALETTE[classId] || [148, 163, 184];
 }
+
+// Funções de Zoom e Ajuste de Tela
+function applyZoom(scale) {
+    if (!loadedImage.width || !loadedImage.height) return;
+    currentZoom = Math.min(Math.max(scale, MIN_ZOOM), MAX_ZOOM);
+
+    canvas.style.width = `${Math.round(loadedImage.width * currentZoom)}px`;
+    canvas.style.height = `${Math.round(loadedImage.height * currentZoom)}px`;
+
+    if (zoomLevelDisplay) {
+        zoomLevelDisplay.innerText = `${Math.round(currentZoom * 100)}%`;
+    }
+}
+
+function fitToScreen() {
+    if (!loadedImage.width || !loadedImage.height || !viewportWrapper) return;
+
+    // Obtém o espaço útil disponível do container de visualização
+    const availableWidth = viewportWrapper.clientWidth - 32;
+    const availableHeight = viewportWrapper.clientHeight - 32;
+
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+
+    const scaleX = availableWidth / loadedImage.width;
+    const scaleY = availableHeight / loadedImage.height;
+
+    // Encaixa proporcionalmente para ocupar o maior espaço possível sem cortar
+    const fitScale = Math.min(scaleX, scaleY);
+    applyZoom(fitScale);
+}
+
+btnZoomIn.onclick = () => applyZoom(currentZoom + ZOOM_STEP);
+btnZoomOut.onclick = () => applyZoom(currentZoom - ZOOM_STEP);
+btnResetZoom.onclick = () => applyZoom(1.0);
+btnFitScreen.onclick = () => fitToScreen();
+
+// Zoom com a roda do mouse sobre o wrapper ou container
+viewportWrapper.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+        applyZoom(currentZoom + ZOOM_STEP);
+    } else {
+        applyZoom(currentZoom - ZOOM_STEP);
+    }
+}, { passive: false });
+
+window.addEventListener('resize', () => {
+    // Redimensionamento suave se a janela mudar
+});
 
 async function init() {
     initTheme();
@@ -220,7 +280,6 @@ function renderClassesList() {
         colorPicker.className = 'w-5 h-5 cursor-pointer bg-transparent border-none rounded-full ml-2';
         colorPicker.title = 'Alterar cor desta classe';
         
-        // Evita que o seletor feche ou dispare cliques pais
         colorPicker.onclick = (e) => e.stopPropagation();
         colorPicker.onchange = (e) => e.stopPropagation();
 
@@ -230,7 +289,6 @@ function renderClassesList() {
             customColors[cls.id] = newRgb;
             localStorage.setItem('custom_class_colors', JSON.stringify(customColors));
             
-            // Atualiza a bolinha indicadora sem reconstruir a árvore DOM
             const bullet = document.getElementById(`bullet-${cls.id}`);
             if (bullet) {
                 bullet.style.backgroundColor = `rgb(${newRgb[0]}, ${newRgb[1]}, ${newRgb[2]})`;
@@ -293,6 +351,10 @@ async function loadSample(index) {
         loadedImage = await fetchCachedImage(samples[currentIndex].image_file);
         canvas.width = loadedImage.width;
         canvas.height = loadedImage.height;
+
+        // Encaixa no display perfeitamente ao carregar
+        fitToScreen();
+
         renderCanvas();
         renderSidebar();
         preloadNext(currentIndex);
@@ -330,18 +392,7 @@ function renderCanvas() {
         ctx.strokeStyle = isSelected ? '#f59e0b' : `rgb(${r}, ${g}, ${bColor})`;
         ctx.strokeRect(x, y, w, h);
 
-        const boxIndex = currentBoxes.indexOf(b) + 1;
-        const labelText = `#${boxIndex}`;
-        ctx.font = 'bold 11px sans-serif';
-        const badgeWidth = ctx.measureText(labelText).width + 8;
-        const badgeHeight = 18;
-        const badgeY = Math.max(0, y - badgeHeight);
-
-        ctx.fillStyle = isSelected ? '#f59e0b' : `rgb(${r}, ${g}, ${bColor})`;
-        ctx.fillRect(x, badgeY, badgeWidth, badgeHeight);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(labelText, x + 4, badgeY + 13);
-
+        // Pontos de redimensionamento ao selecionar
         if (isSelected) {
             drawHandle(x, y);
             drawHandle(x + w, y);
@@ -393,7 +444,6 @@ canvas.addEventListener('mousedown', (e) => {
         const handle = getHandleUnderMouse(pos, selectedBox);
         if (handle) {
             activeHandle = handle;
-            hideTooltip();
             return;
         }
     }
@@ -407,8 +457,6 @@ canvas.addEventListener('mousedown', (e) => {
     const hit = getBoxAt(pos);
     if (hit) {
         selectBox(hit);
-        const rect = container.getBoundingClientRect();
-        showTooltip(e.clientX - rect.left, e.clientY - rect.top, hit);
 
         // Configura movimentação da caixa
         isDraggingBox = true;
@@ -432,7 +480,6 @@ canvas.addEventListener('mousemove', (e) => {
     }
 
     if (isDraggingBox && selectedBox) {
-        hideTooltip();
         moveBox(selectedBox, pos);
         renderCanvas();
         return;
@@ -482,11 +529,6 @@ canvas.addEventListener('mouseup', (e) => {
 
     if (isDraggingBox) {
         isDraggingBox = false;
-        if (selectedBox) {
-            const rect = container.getBoundingClientRect();
-            const { x, y } = getBoxCoords(selectedBox);
-            showTooltip((x / canvas.width) * rect.width, (y / canvas.height) * rect.height, selectedBox);
-        }
         renderSidebar();
         return;
     }
@@ -510,7 +552,7 @@ canvas.addEventListener('mouseup', (e) => {
                 y_center: (minY + h / 2) / canvas.height,
                 width: w / canvas.width,
                 height: h / canvas.height,
-                confidence: 1.0,
+                confidence: null, // Sem porcentagem para caixas manuais
                 valid: true
             };
             currentBoxes.push(newBox);
@@ -528,7 +570,6 @@ function moveBox(box, pos) {
     let newX = pos.x - dragOffset.x;
     let newY = pos.y - dragOffset.y;
 
-    // Mantém a caixa nos limites da imagem
     newX = Math.max(0, Math.min(canvas.width - w, newX));
     newY = Math.max(0, Math.min(canvas.height - h, newY));
 
@@ -578,41 +619,9 @@ function unselectBox() {
     selectedBox = null;
     hoveredBox = null;
     isDraggingBox = false;
-    hideTooltip();
     renderCanvas();
     renderSidebar();
 }
-
-function showTooltip(x, y, box) {
-    tooltipLabel.innerText = box.class_name.toUpperCase();
-    if (box.confidence !== null && box.confidence !== undefined) {
-        tooltipConf.innerText = `${Math.round(box.confidence * 100)}% conf`;
-        tooltipConf.classList.remove('hidden');
-    } else {
-        tooltipConf.classList.add('hidden');
-    }
-    tooltip.style.left = `${x + 10}px`;
-    tooltip.style.top = `${y + 10}px`;
-    tooltip.style.display = 'flex';
-}
-
-function hideTooltip() {
-    tooltip.style.display = 'none';
-}
-
-document.getElementById('btnCorreto').onclick = (e) => {
-    e.stopPropagation();
-    unselectBox();
-};
-
-document.getElementById('btnIncorreto').onclick = (e) => {
-    e.stopPropagation();
-    if (selectedBox) {
-        const target = currentBoxes.find(b => b.box_id === selectedBox.box_id);
-        if (target) target.valid = false;
-    }
-    unselectBox();
-};
 
 function renderSidebar() {
     const list = document.getElementById('detectionsList');
@@ -625,38 +634,90 @@ function renderSidebar() {
         const isSelected = selectedBox && selectedBox.box_id === b.box_id;
         const [r, g, bColor] = getClassColor(b.class_id);
 
+        // Confiança exibida SOMENTE se existir no arquivo original (não nula)
         const confBadge = (b.confidence !== null && b.confidence !== undefined)
             ? `<span class="text-[10px] bg-neutral-200 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 px-1.5 py-0.5 rounded text-neutral-800 dark:text-neutral-200 font-mono font-bold">${Math.round(b.confidence * 100)}%</span>`
             : '';
 
-        item.className = `p-2.5 rounded-lg border text-xs transition cursor-pointer flex justify-between items-center ${
+        item.className = `p-2.5 rounded-lg border text-xs transition flex flex-col gap-2 ${
             !b.valid 
-            ? 'bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 text-neutral-400 line-through' 
+            ? 'bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 opacity-40' 
             : isSelected 
-            ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-300' 
+            ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-300 shadow-sm' 
             : 'bg-neutral-50 dark:bg-neutral-800/60 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
         }`;
 
-        item.innerHTML = `
-            <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full" style="background-color: rgb(${r}, ${g}, ${bColor})"></span>
-                <span class="font-mono text-neutral-400 font-bold">#${idx + 1}</span>
-                <span class="font-semibold">${b.class_name}</span>
-            </div>
-            <div class="flex items-center gap-2">
-                ${confBadge}
-                <span class="text-[10px] ${b.valid ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500'}">
-                    ${b.valid ? '✓ Válido' : '✕ Removido'}
-                </span>
-            </div>
-        `;
+        // Cabeçalho da linha: indicador de cor, dropdown de classe, badge de confiança e botão de excluir
+        const topRow = document.createElement('div');
+        topRow.className = "flex items-center justify-between gap-2";
+
+        const leftGroup = document.createElement('div');
+        leftGroup.className = "flex items-center gap-2 flex-1 min-w-0";
+
+        const bullet = document.createElement('span');
+        bullet.className = "w-2.5 h-2.5 rounded-full flex-shrink-0";
+        bullet.style.backgroundColor = `rgb(${r}, ${g}, ${bColor})`;
+
+        // Dropdown para troca de classe
+        const selectCls = document.createElement('select');
+        selectCls.className = "bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded px-2 py-0.5 text-xs font-semibold focus:outline-none truncate";
+        selectCls.onclick = (e) => e.stopPropagation();
+        selectCls.onchange = (e) => {
+            e.stopPropagation();
+            const newClassId = parseInt(e.target.value);
+            const foundCls = classes.find(c => c.id === newClassId);
+            b.class_id = newClassId;
+            b.class_name = foundCls ? foundCls.name : `Classe ${newClassId}`;
+            renderCanvas();
+            renderSidebar();
+        };
+
+        classes.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = c.name;
+            if (c.id === b.class_id) opt.selected = true;
+            selectCls.appendChild(opt);
+        });
+
+        leftGroup.appendChild(bullet);
+        leftGroup.appendChild(selectCls);
+
+        const rightGroup = document.createElement('div');
+        rightGroup.className = "flex items-center gap-1.5 flex-shrink-0";
+        if (confBadge) {
+            rightGroup.innerHTML += confBadge;
+        }
+
+        // Botão de Excluir / Restaurar
+        const btnDelete = document.createElement('button');
+        btnDelete.className = `p-1 rounded transition text-xs font-bold ${
+            b.valid 
+            ? 'hover:bg-rose-500/20 text-rose-500' 
+            : 'hover:bg-emerald-500/20 text-emerald-500'
+        }`;
+        btnDelete.title = b.valid ? "Excluir anotação" : "Restaurar anotação";
+        btnDelete.innerText = b.valid ? "✕" : "↺";
+        btnDelete.onclick = (e) => {
+            e.stopPropagation();
+            b.valid = !b.valid;
+            if (!b.valid && selectedBox && selectedBox.box_id === b.box_id) {
+                unselectBox();
+            } else {
+                renderCanvas();
+                renderSidebar();
+            }
+        };
+
+        rightGroup.appendChild(btnDelete);
+
+        topRow.appendChild(leftGroup);
+        topRow.appendChild(rightGroup);
+        item.appendChild(topRow);
 
         item.onclick = () => {
             if (!b.valid) return;
             selectBox(b);
-            const rect = container.getBoundingClientRect();
-            const { x, y } = getBoxCoords(b);
-            showTooltip((x / canvas.width) * rect.width, (y / canvas.height) * rect.height, b);
         };
 
         list.appendChild(item);

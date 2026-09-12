@@ -1,6 +1,6 @@
 
-path_captured: "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/active_learning/dataset_captura"
-path_cured: "/home/iury/Documents/Challenge 2026 - SPI/Backend-SPI-2026/assets/modelo/active_learning/dataset_tratado"
+path_captured: "/home/iury/Documents/Challenge 2026 - SPI/backend-SPI/assets/modelo/active_learning/dataset_captura"
+path_cured: "/home/iury/Documents/Challenge 2026 - SPI/backend-SPI/assets/modelo/active_learning/dataset_tratado"
 
 classes: {
   0: 'Pessoa',
