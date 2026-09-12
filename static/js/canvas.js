@@ -11,9 +11,18 @@ export function getCanvasElements() {
 
 export function resizeCanvasToContainer() {
     if (!viewportWrapper) return;
-    canvas.width = viewportWrapper.clientWidth;
-    canvas.height = viewportWrapper.clientHeight;
-    renderCanvas();
+    const rect = viewportWrapper.getBoundingClientRect();
+    
+    // Math.floor previne oscilação de subpixels decimais que esticam o layout
+    const newWidth = Math.floor(rect.width);
+    const newHeight = Math.floor(rect.height);
+
+    if (newWidth > 0 && newHeight > 0) {
+        if (canvas.width !== newWidth || canvas.height !== newHeight) {
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+        }
+    }
 }
 
 export function screenToImage(screenX, screenY) {
@@ -25,11 +34,15 @@ export function screenToImage(screenX, screenY) {
 
 export function fitToScreen() {
     if (!state.loadedImage.width || !state.loadedImage.height || !viewportWrapper) return;
+    
     resizeCanvasToContainer();
 
-    // Deixa margem para não encostar nas bordas e na barra inferior
-    const scaleX = (canvas.width - 60) / state.loadedImage.width;
-    const scaleY = (canvas.height - 100) / state.loadedImage.height;
+    const padding = 32;
+    const availableW = Math.max(10, canvas.width - padding);
+    const availableH = Math.max(10, canvas.height - padding);
+
+    const scaleX = availableW / state.loadedImage.width;
+    const scaleY = availableH / state.loadedImage.height;
     state.currentZoom = Math.min(scaleX, scaleY);
 
     state.panX = (canvas.width - (state.loadedImage.width * state.currentZoom)) / 2;
