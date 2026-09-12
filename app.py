@@ -1,4 +1,5 @@
 from flask import Flask, render_template, jsonify, send_file, request
+from augmentation import generate_augmented_copies
 import shutil
 import yaml
 import os
@@ -200,32 +201,50 @@ def save_and_move():
     label_file = dados.get("label_file")
     boxes = dados.get("boxes", [])
 
+    # Recebe os diretórios de origem e destino das imagens e labels
     src_img_dir, src_lbl_dir = get_source_paths()
     tgt_img_dir, tgt_lbl_dir = get_target_paths()
+
+    os.makedirs(tgt_img_dir, exist_ok=True)
+    os.makedirs(tgt_lbl_dir, exist_ok=True)
 
     src_img = os.path.join(src_img_dir, image_file)
     src_lbl = os.path.join(src_lbl_dir, label_file)
     dest_img = os.path.join(tgt_img_dir, image_file)
     dest_lbl = os.path.join(tgt_lbl_dir, label_file)
 
+    # Filtra as caixas válidas confirmadas pelo anotador
+    valid_boxes: list = []
+    for box in boxes:
+        valid_boxes.append(box.get("valid", True))
+
+    # Salva a anotação original na pasta de curadoria
     lines = []
-    for b in boxes:
-        if b.get("valid", True):
-            cls_id = b["class_id"]
-            xc = max(0.0, min(1.0, float(b["x_center"])))
-            yc = max(0.0, min(1.0, float(b["y_center"])))
-            w = max(0.0, min(1.0, float(b["width"])))
-            h = max(0.0, min(1.0, float(b["height"])))
-            lines.append(f"{cls_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}")
+    for box in boxes:
+        cls_id = box["class_id"]
+        xc = max(0.0, min(1.0, float(box["x_center"])))
+        yc = max(0.0, min(1.0, float(box["y_center"])))
+        w = max(0.0, min(1.0, float(box["width"])))
+        h = max(0.0, min(1.0, float(box["height"])))
+        lines.append(f"{cls_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}")
 
     with open(dest_lbl, 'w') as f:
         f.write("\n".join(lines))
 
+    # Move a imagem original para a pasta de curadoria
     if os.path.exists(src_img):
         shutil.move(src_img, dest_img)
 
     if os.path.exists(src_lbl):
         os.remove(src_lbl)
+
+    generate_augmented_copies(
+        img_path=dest_img, 
+        boxes=boxes, 
+        dir_output_img=tgt_img_dir, 
+        dir_output_lbl=tgt_lbl_dir, 
+        base_name=base_name
+    )
 
     return jsonify({"status": "sucesso"})
 

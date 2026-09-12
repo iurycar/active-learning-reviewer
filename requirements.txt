@@ -1,2 +1,4 @@
 flask
 pyyaml
+albumentations
+opencv-python
