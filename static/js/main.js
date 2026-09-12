@@ -24,6 +24,14 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.15;
 
+// Variável de controle para o destino manual (padrão: 'train')
+let manualSelectedSplit = 'train';
+
+const chkAutoValidation = document.getElementById('chkAutoValidation');
+const manualSplitSelector = document.getElementById('manualSplitSelector');
+const btnSelectTrain = document.getElementById('btnSelectTrain');
+const btnSelectVal = document.getElementById('btnSelectVal');
+
 const DEFAULT_PALETTE = {
     0: [34, 197, 94],
     1: [239, 68, 68],
@@ -724,17 +732,47 @@ function renderSidebar() {
     });
 }
 
+// Exibe/oculta o seletor manual de acordo com o checkbox automático
+chkAutoValidation.addEventListener('change', (e) => {
+    if (e.target.checked) {
+        manualSplitSelector.classList.add('hidden');
+        manualSplitSelector.classList.remove('flex');
+    } else {
+        manualSplitSelector.classList.remove('hidden');
+        manualSplitSelector.classList.add('flex');
+    }
+});
+
+// Alterna visualmente e logicamente entre 'train' e 'val'
+function setManualSplit(mode) {
+    manualSelectedSplit = mode;
+    const activeClasses = "h-full px-2.5 rounded-md bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-xs font-semibold shadow-sm transition";
+    const inactiveClasses = "h-full px-2.5 rounded-md text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs transition";
+
+    if (mode === 'train') {
+        btnSelectTrain.className = activeClasses;
+        btnSelectVal.className = inactiveClasses;
+    } else {
+        btnSelectVal.className = activeClasses;
+        btnSelectTrain.className = inactiveClasses;
+    }
+}
+
+btnSelectTrain.onclick = () => setManualSplit('train');
+btnSelectVal.onclick = () => setManualSplit('val');
+
 async function handleSaveAndAdvance(applyAugmentation = false) {
     if (samples.length === 0) return;
     const sample = samples[currentIndex];
 
-    // Opcional: feedback visual de carregamento no botão
     const btnAug = document.getElementById('btnSalvarComAugment');
     const originalText = btnAug.innerText;
     if (applyAugmentation) {
         btnAug.innerText = 'Processando...';
         btnAug.disabled = true;
     }
+
+    const allowValidationSplit = chkAutoValidation.checked;
 
     try {
         await fetch('/api/save-and-move', {
@@ -745,7 +783,9 @@ async function handleSaveAndAdvance(applyAugmentation = false) {
                 image_file: sample.image_file,
                 label_file: sample.label_file,
                 boxes: currentBoxes,
-                apply_augmentation: applyAugmentation
+                apply_augmentation: applyAugmentation,
+                allow_validation_split: allowValidationSplit,
+                split: allowValidationSplit ? null : manualSelectedSplit
             })
         });
 
@@ -772,6 +812,9 @@ async function handleSaveAndAdvance(applyAugmentation = false) {
         }
     }
 }
+
+document.getElementById('btnSalvarAvancar').onclick = () => handleSaveAndAdvance(false);
+document.getElementById('btnSalvarComAugment').onclick = () => handleSaveAndAdvance(true);
 
 // Botão normal: apenas move a imagem e salva anotações
 document.getElementById('btnSalvarAvancar').onclick = () => handleSaveAndAdvance(false);

@@ -93,11 +93,11 @@ def generate_augmented_copies(img_path, boxes, dir_output_img, dir_output_lbl, b
 
             cv2.imwrite(dest_img, img_aug)
 
-            lines = [
-                f"{cls_id} {bbox[0]:.6f} {bbox[1]:.6f} {bbox[2]:.6f} {bbox[3]:.6f}"
-                for bbox, cls_id in zip(aug_bboxes, aug_labels)
-            ]
-
+            lines = []
+            for bbox, cls_id in zip(aug_bboxes, aug_labels):
+                x_c, y_c, largura, altura = bbox
+                lines.append(f"{int(cls_id)} {x_c:.6f} {y_c:.6f} {largura:.6f} {altura:.6f}")
+  
             with open(dest_lbl, 'w') as file:
                 file.write("\n".join(lines))
 

@@ -1,8 +1,10 @@
 from flask import Flask, render_template, jsonify, send_file, request
 from augmentation import generate_augmented_copies
+import random
 import shutil
 import yaml
 import os
+import re
 
 app = Flask(__name__)
 
@@ -14,6 +16,10 @@ CURRENT_CONFIG = {
 }
 
 CLASS_NAMES = {}
+
+# Memória global para armazenar o timestamp da última imagem processada e o destino da última imagem processada
+TIMESTAMP_LAST_IMAGE = None
+DEST_LAST_IMAGE = None
 
 def load_config():
     """Carrega a configuração do arquivo YAML, se existir."""
@@ -28,13 +34,33 @@ def load_config():
 
             CLASS_NAMES.update(data.get("classes", {}))
 
-def get_source_paths():
+def get_source_paths() -> tuple[str, str]:
     src = CURRENT_CONFIG["source_dir"]
     return os.path.join(src, "images"), os.path.join(src, "labels")
 
-def get_target_paths():
+def get_target_paths() -> tuple[str, str, str, str]:
     tgt = CURRENT_CONFIG["target_dir"]
-    return os.path.join(tgt, "images"), os.path.join(tgt, "labels")
+    path_train_images = os.path.join(tgt, "train", "images")
+    path_train_labels = os.path.join(tgt, "train", "labels")
+    path_val_images = os.path.join(tgt, "val", "images")
+    path_val_labels = os.path.join(tgt, "val", "labels")
+
+    return path_train_images, path_train_labels, path_val_images, path_val_labels
+
+def extract_timestamp(filename_or_path: str) -> float:
+    """Extrai timestamp em segundos do nome do arquivo (ex: frame_al_1789131718074.jpg) ou do mtime."""
+
+    # Primeiro, tenta extrair um número de 10 a 13 dígitos do nome do arquivo
+    match = re.search(r'(\d{10,13})', filename_or_path)
+    if match:
+        val = int(match.group(1)) # Converte para inteiro
+        return val / 1000.0 if val > 1e10 else float(val) # Se for timestamp em milissegundos, converte para segundos
+
+    # Se não houver número no nome do arquivo, retorna o mtime do arquivo, se existir
+    if os.path.exists(filename_or_path):
+        return os.path.getmtime(filename_or_path)
+
+    return 0.0
 
 @app.route('/')
 def index():
@@ -195,24 +221,59 @@ def get_labels(filename):
 
 @app.route('/api/save-and-move', methods=['POST'])
 def save_and_move():
+    global TIMESTAMP_LAST_IMAGE, DEST_LAST_IMAGE
+
     dados = request.json or {}
     base_name = dados.get("id")
     image_file = dados.get("image_file")
     label_file = dados.get("label_file")
     boxes = dados.get("boxes", [])
     aplicar_augmentation = dados.get("apply_augmentation", False)
+    permitir_val_split = dados.get("allow_validation_split", True)
+    split = dados.get("split", None)
 
     # Recebe os diretórios de origem e destino das imagens e labels
     src_img_dir, src_lbl_dir = get_source_paths()
-    tgt_img_dir, tgt_lbl_dir = get_target_paths()
+    tgt_train_img_dir, tgt_train_lbl_dir, tgt_val_img_dir, tgt_val_lbl_dir = get_target_paths()
 
-    os.makedirs(tgt_img_dir, exist_ok=True)
-    os.makedirs(tgt_lbl_dir, exist_ok=True)
+    for path in (tgt_train_img_dir, tgt_train_lbl_dir, tgt_val_img_dir, tgt_val_lbl_dir):
+        os.makedirs(path, exist_ok=True)
 
-    src_img = os.path.join(src_img_dir, image_file)
-    src_lbl = os.path.join(src_lbl_dir, label_file)
-    dest_img = os.path.join(tgt_img_dir, image_file)
-    dest_lbl = os.path.join(tgt_lbl_dir, label_file)
+    src_img: str = os.path.join(src_img_dir, image_file)
+    src_lbl: str = os.path.join(src_lbl_dir, label_file)
+
+    # Pega o timestamp do frame atual
+    current_timestamp: float = extract_timestamp(src_img)
+
+    if permitir_val_split and split not in ("train", "val"):
+        # Determina se a imagem vai para treino ou validação com base no timestamp da última imagem processada
+        # Se a diferença for menor que 10 minutos (600 segundos), mantém o mesmo destino da última imagem
+        # Se não, decide aleatoriamente com 20% de chance para validação e 80% para treino
+        # Isso ajuda a manter a consistência temporal dos dados, evitando que frames consecutivos sejam divididos entre treino e validação.
+        # ----> AVISO! <---- 
+        # Coloquei para 1 minuto (60 segundos) para teste    
+        if (TIMESTAMP_LAST_IMAGE is not None and DEST_LAST_IMAGE is not None and abs(current_timestamp - TIMESTAMP_LAST_IMAGE) < 60):
+                split = DEST_LAST_IMAGE
+        else:
+            split = "val" if random.randint(1, 100) <= 20 else "train"
+    else:
+        if split not in ("train", "val"):
+            split = "train"  # Default para treino se não for validação
+        else:
+            split = split  # Mantém o valor fornecido pelo usuário
+
+
+    TIMESTAMP_LAST_IMAGE = current_timestamp
+    DEST_LAST_IMAGE = split
+    is_val = (split == "val")
+    
+    # Se não for validação, então vai para treino
+    if is_val:
+        dest_img = os.path.join(tgt_val_img_dir, image_file)
+        dest_lbl = os.path.join(tgt_val_lbl_dir, label_file)
+    else:
+        dest_img = os.path.join(tgt_train_img_dir, image_file)
+        dest_lbl = os.path.join(tgt_train_lbl_dir, label_file)
 
     # Filtra as caixas válidas confirmadas pelo anotador
     valid_boxes: list = []
@@ -227,7 +288,7 @@ def save_and_move():
         yc = max(0.0, min(1.0, float(box["y_center"])))
         w = max(0.0, min(1.0, float(box["width"])))
         h = max(0.0, min(1.0, float(box["height"])))
-        lines.append(f"{cls_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}")
+        lines.append(f"{int(cls_id)} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}")
 
     with open(dest_lbl, 'w') as f:
         f.write("\n".join(lines))
@@ -239,17 +300,17 @@ def save_and_move():
     if os.path.exists(src_lbl):
         os.remove(src_lbl)
 
-    # Executa a geração de cópias se solicitado pelo usuário
-    if aplicar_augmentation:
+    # Executa a geração de cópias transformadas se solicitado pelo usuário e não for para validação
+    if not is_val and aplicar_augmentation:
         generate_augmented_copies(
             img_path=dest_img, 
             boxes=boxes, 
-            dir_output_img=tgt_img_dir, 
-            dir_output_lbl=tgt_lbl_dir, 
+            dir_output_img=tgt_train_img_dir, 
+            dir_output_lbl=tgt_train_lbl_dir, 
             base_name=base_name
         )
-
-    return jsonify({"status": "sucesso"})
+    
+    return jsonify({"status": "sucesso", "split": split})
 
 @app.route('/api/sample/<base_name>', methods=['DELETE'])
 def delete_sample(base_name):
