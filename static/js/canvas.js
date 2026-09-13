@@ -187,10 +187,12 @@ export function resizeBox(box, handle, pos) {
     let x2 = x + w;
     let y2 = y + h;
 
-    if (handle === 'tl') { x = Math.min(pos.x, x2 - 10); y = Math.min(pos.y, y2 - 10); }
-    if (handle === 'tr') { x2 = Math.max(pos.x, x + 10); y = Math.min(pos.y, y2 - 10); }
-    if (handle === 'bl') { x = Math.min(pos.x, x2 - 10); y2 = Math.max(pos.y, y + 10); }
-    if (handle === 'br') { x2 = Math.max(pos.x, x + 10); y2 = Math.max(pos.y, y + 10); }
+    const minSize = 3; // Tamanho mínimo da caixa em pixels
+
+    if (handle === 'tl') { x = Math.min(pos.x, x2 - minSize); y = Math.min(pos.y, y2 - minSize); }
+    if (handle === 'tr') { x2 = Math.max(pos.x, x + minSize); y = Math.min(pos.y, y2 - minSize); }
+    if (handle === 'bl') { x = Math.min(pos.x, x2 - minSize); y2 = Math.max(pos.y, y + minSize); }
+    if (handle === 'br') { x2 = Math.max(pos.x, x + minSize); y2 = Math.max(pos.y, y + minSize); }
 
     const newW = x2 - x;
     const newH = y2 - y;

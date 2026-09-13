@@ -269,6 +269,7 @@ def save_and_move():
     
     # Se não for validação, então vai para treino
     if is_val:
+        print(f"🖎 Movendo {image_file} para validação.")
         dest_img = os.path.join(tgt_val_img_dir, image_file)
         dest_lbl = os.path.join(tgt_val_lbl_dir, label_file)
     else:

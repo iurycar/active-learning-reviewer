@@ -92,11 +92,59 @@ export function renderSidebar() {
     const list = document.getElementById('detectionsList');
     if (!list) return;
     list.innerHTML = '';
+
     const activeBoxes = state.currentBoxes.filter(b => b.valid);
     const countEl = document.getElementById('detCount');
     if (countEl) countEl.innerText = `${activeBoxes.length} objetos`;
 
-    state.currentBoxes.forEach((b) => {
+    const totalItems = state.currentBoxes.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / state.detectionsPerPage));
+
+    // Ajusta a página atual caso caixas tenham sido deletadas
+    if (state.detectionsPage > totalPages) {
+        state.detectionsPage = totalPages;
+    }
+
+    // Controles de paginação
+    const paginationContainer = document.getElementById('detectionsPagination');
+    const btnPrev = document.getElementById('btnDetectionsPrev');
+    const btnNext = document.getElementById('btnDetectionsNext');
+    const pageIndicator = document.getElementById('detectionsPageIndicator');
+
+    if (paginationContainer) {
+        if (totalPages > 1) {
+            paginationContainer.classList.remove('hidden');
+            paginationContainer.classList.add('flex');
+            
+            pageIndicator.innerText = `${state.detectionsPage} / ${totalPages}`;
+            btnPrev.disabled = state.detectionsPage <= 1;
+            btnNext.disabled = state.detectionsPage >= totalPages;
+
+            btnPrev.onclick = () => {
+                if (state.detectionsPage > 1) {
+                    state.detectionsPage--;
+                    renderSidebar();
+                }
+            };
+
+            btnNext.onclick = () => {
+                if (state.detectionsPage < totalPages) {
+                    state.detectionsPage++;
+                    renderSidebar();
+                }
+            };
+        } else {
+            paginationContainer.classList.add('hidden');
+            paginationContainer.classList.remove('flex');
+        }
+    }
+
+    // Fatia apenas os itens da página atual (ex: 0 a 10, 10 a 20)
+    const startIndex = (state.detectionsPage - 1) * state.detectionsPerPage;
+    const endIndex = startIndex + state.detectionsPerPage;
+    const currentSlice = state.currentBoxes.slice(startIndex, endIndex);
+
+    currentSlice.forEach((b) => {
         const item = document.createElement('div');
         const isSelected = state.selectedBox && state.selectedBox.box_id === b.box_id;
         const [r, g, bColor] = getClassColor(b.class_id);
@@ -105,7 +153,7 @@ export function renderSidebar() {
             ? `<span class="text-[10px] bg-neutral-200 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 px-1.5 py-0.5 rounded text-neutral-800 dark:text-neutral-200 font-mono font-bold">${Math.round(b.confidence * 100)}%</span>`
             : '';
 
-        item.className = `p-2.5 rounded-lg border text-xs transition flex flex-col gap-2 ${
+        item.className = `p-2 rounded-lg border text-xs transition flex flex-col gap-1.5 ${
             !b.valid 
             ? 'bg-neutral-100 dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800 opacity-40' 
             : isSelected 
@@ -152,21 +200,47 @@ export function renderSidebar() {
         if (confBadge) rightGroup.innerHTML += confBadge;
 
         const btnDelete = document.createElement('button');
-        btnDelete.className = `p-1 rounded transition text-xs font-bold ${
-            b.valid ? 'hover:bg-rose-500/20 text-rose-500' : 'hover:bg-emerald-500/20 text-emerald-500'
-        }`;
-        btnDelete.title = b.valid ? "Excluir anotação" : "Restaurar anotação";
-        btnDelete.innerText = b.valid ? "✕" : "↺";
-        btnDelete.onclick = (e) => {
-            e.stopPropagation();
-            b.valid = !b.valid;
-            if (!b.valid && state.selectedBox && state.selectedBox.box_id === b.box_id) {
-                unselectBox();
-            } else {
-                renderCanvas();
-                renderSidebar();
-            }
-        };
+        if (b.isManual) {
+            // Para caixas criadas pelo usuário: sempre botão de apagar definitivo
+            btnDelete.className = 'p-1 rounded transition text-xs font-bold hover:bg-rose-500/20 text-rose-500';
+            btnDelete.title = "Excluir anotação definitivamente";
+            btnDelete.innerText = "✕";
+
+            btnDelete.onclick = (e) => {
+                e.stopPropagation();
+
+                // Remove definitivamente do array de caixas
+                const idx = state.currentBoxes.findIndex(box => box.box_id === b.box_id);
+                if (idx !== -1) {
+                    state.currentBoxes.splice(idx, 1);
+                }
+
+                if (state.selectedBox && state.selectedBox.box_id === b.box_id) {
+                    unselectBox();
+                } else {
+                    renderCanvas();
+                    renderSidebar();
+                }
+            };
+        } else {
+            // Para predições importadas: alternância entre desativar (✕) e restaurar (↺)
+            btnDelete.className = `p-1 rounded transition text-xs font-bold ${
+                b.valid ? 'hover:bg-rose-500/20 text-rose-500' : 'hover:bg-emerald-500/20 text-emerald-500'
+            }`;
+            btnDelete.title = b.valid ? "Excluir anotação" : "Restaurar anotação";
+            btnDelete.innerText = b.valid ? "✕" : "↺";
+
+            btnDelete.onclick = (e) => {
+                e.stopPropagation();
+                b.valid = !b.valid;
+                if (!b.valid && state.selectedBox && state.selectedBox.box_id === b.box_id) {
+                    unselectBox();
+                } else {
+                    renderCanvas();
+                    renderSidebar();
+                }
+            };
+        }
 
         rightGroup.appendChild(btnDelete);
         topRow.appendChild(leftGroup);

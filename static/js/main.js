@@ -98,6 +98,8 @@ async function loadBatch() {
         return;
     }
 
+    state.detectionsPage = 1;
+
     loadSample(0);
 }
 
@@ -328,7 +330,9 @@ window.addEventListener('mouseup', (e) => {
         const w = maxX - minX;
         const h = maxY - minY;
 
-        if (w > 10 && h > 10 && state.selectedClassForDrawing) {
+        const minSize = 3; // Tamanho mínimo da caixa em pixels
+
+        if (w >= minSize && h >= minSize && state.selectedClassForDrawing) {
             const newBox = {
                 box_id: Date.now(),
                 class_id: state.selectedClassForDrawing.id,
@@ -338,9 +342,12 @@ window.addEventListener('mouseup', (e) => {
                 width: w / state.loadedImage.width,
                 height: h / state.loadedImage.height,
                 confidence: null,
-                valid: true
+                valid: true,
+                isManual: true
             };
             state.currentBoxes.push(newBox);
+            // Garante que o painel mostre a página onde a nova caixa foi parar
+            state.detectionsPage = Math.ceil(state.currentBoxes.length / state.detectionsPerPage);
             sb.selectBox(newBox);
         }
         cvs.renderCanvas();

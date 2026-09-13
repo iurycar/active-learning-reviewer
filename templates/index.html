@@ -131,14 +131,20 @@
                     </button>
 
                     <div class="flex items-center gap-2">
+                        <!-- Toggle Auto Split -->
                         <label class="h-9 flex items-center gap-2 px-3 bg-neutral-200 dark:bg-neutral-800/80 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium cursor-pointer select-none whitespace-nowrap">
-                            <input type="checkbox" id="chkAutoValidation" checked class="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-0 cursor-pointer">
+                            <input type="checkbox" id="chkAutoValidation" class="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-0 cursor-pointer">
                             <span class="text-neutral-700 dark:text-neutral-300">Auto Split (20%)</span>
                         </label>
 
-                        <div id="manualSplitSelector" class="hidden h-9 items-center bg-neutral-200 dark:bg-neutral-800 p-1 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium">
-                            <button id="btnSelectTrain" type="button" class="h-full px-2.5 rounded-md bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-xs font-semibold shadow-sm transition">Treino</button>
-                            <button id="btnSelectVal" type="button" class="h-full px-2.5 rounded-md text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs transition">Validação</button>
+                        <!-- Seletor Manual (Treino / Validação) -->
+                        <div id="manualSplitSelector" class="flex h-9 items-center bg-neutral-200 dark:bg-neutral-800 p-1 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-medium">
+                            <button id="btnSelectTrain" type="button" class="h-full px-2.5 rounded-md bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white text-xs font-semibold shadow-sm transition">
+                                Treino
+                            </button>
+                            <button id="btnSelectVal" type="button" class="h-full px-2.5 rounded-md text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white text-xs transition">
+                                Validação
+                            </button>
                         </div>
 
                         <span class="h-5 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-1"></span>
@@ -162,7 +168,25 @@
                 <h2 class="text-xs font-bold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider">Detecções no Frame</h2>
                 <span id="detCount" class="text-[11px] text-neutral-500">0 objetos</span>
             </div>
-            <div id="detectionsList" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+            
+            <!-- Painel Lateral Direito: Detecções com Paginação Fixa -->
+            <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <!-- Lista rolante caso precise, mas limitada pela página -->
+                <div id="detectionsList" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+                    <!-- Itens inseridos dinamicamente -->
+                </div>
+
+                <!-- Controles de Paginação das Detecções -->
+                <div id="detectionsPagination" class="hidden items-center justify-between pt-2 mt-2 border-t border-neutral-200 dark:border-neutral-800 text-xs flex-shrink-0">
+                    <button id="btnDetectionsPrev" type="button" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded text-neutral-700 dark:text-neutral-300 font-semibold transition disabled:opacity-30 disabled:cursor-not-allowed">
+                        ◀ Anterior
+                    </button>
+                    <span id="detectionsPageIndicator" class="text-neutral-500 font-mono text-[11px]">1 / 1</span>
+                    <button id="btnDetectionsNext" type="button" class="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded text-neutral-700 dark:text-neutral-300 font-semibold transition disabled:opacity-30 disabled:cursor-not-allowed">
+                        Próximo ▶
+                    </button>
+                </div>
+            </div>
         </aside>
     </div>
 

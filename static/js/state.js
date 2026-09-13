@@ -28,7 +28,11 @@ export const state = {
     activeHandle: null,
     
     // Split
-    manualSelectedSplit: 'train'
+    manualSelectedSplit: 'train',
+
+    // Paginação das detecções do frame
+    detectionsPage: 1,
+    detectionsPerPage: 15
 };
 
 export const HANDLE_SIZE = 8;
@@ -36,14 +40,14 @@ export const HANDLE_SIZE = 8;
 export const DEFAULT_PALETTE = {
     0: [34, 197, 94],
     1: [239, 68, 68],
-    2: [59, 130, 246],
-    3: [249, 115, 22],
+    2: [0, 98, 255],
+    3: [255, 0, 136],
     4: [6, 182, 212],
-    5: [234, 179, 8],
-    6: [217, 70, 239],
-    7: [16, 185, 129],
-    8: [244, 63, 94],
-    9: [168, 85, 247]
+    5: [255, 180, 0],
+    6: [255, 0, 0],
+    7: [0, 0, 255],
+    8: [225, 0, 255],
+    9: [255, 255, 148]
 };
 
 export const customColors = JSON.parse(localStorage.getItem('custom_class_colors') || '{}');
