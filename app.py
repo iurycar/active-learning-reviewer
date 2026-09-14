@@ -307,7 +307,7 @@ def save_and_move():
     if not is_val and aplicar_augmentation:
         generate_augmented_copies(
             img_path=dest_img, 
-            boxes=boxes, 
+            boxes=valid_boxes, 
             dir_output_img=tgt_train_img_dir, 
             dir_output_lbl=tgt_train_lbl_dir, 
             base_name=base_name
@@ -317,13 +317,14 @@ def save_and_move():
 
 @app.route('/api/sample/<base_name>', methods=['DELETE'])
 def delete_sample(base_name):
-    
     src_img_dir, src_lbl_dir = get_source_paths()
-    img_path = os.path.join(src_img_dir, f"{base_name}.jpg")
     lbl_path = os.path.join(src_lbl_dir, f"{base_name}.txt")
 
-    if os.path.exists(img_path):
-        os.remove(img_path)
+    for ext in ('.jpg', '.jpeg', '.png'):
+        img_path = os.path.join(src_img_dir, f"{base_name}{ext}")
+        if os.path.exists(img_path):
+            os.remove(img_path)
+            break
 
     if os.path.exists(lbl_path):
         os.remove(lbl_path)
