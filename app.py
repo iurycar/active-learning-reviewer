@@ -85,9 +85,9 @@ def manage_config():
         CURRENT_CONFIG["target_dir"] = new_target
 
         # Garante a criação das pastas de destino, caso não existam
-        tgt_img, tgt_lbl = get_target_paths()
-        os.makedirs(tgt_img, exist_ok=True)
-        os.makedirs(tgt_lbl, exist_ok=True)
+        tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl = get_target_paths()
+        for path in (tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl):
+            os.makedirs(path, exist_ok=True)
 
         return jsonify({"status": "sucesso", "config": CURRENT_CONFIG})
 
@@ -279,11 +279,13 @@ def save_and_move():
     # Filtra as caixas válidas confirmadas pelo anotador
     valid_boxes: list = []
     for box in boxes:
-        valid_boxes.append(box.get("valid", True))
+        valida = box.get("valid", True)
+        if valida:
+            valid_boxes.append(box)
 
     # Salva a anotação original na pasta de curadoria
     lines = []
-    for box in boxes:
+    for box in valid_boxes:
         cls_id = box["class_id"]
         xc = max(0.0, min(1.0, float(box["x_center"])))
         yc = max(0.0, min(1.0, float(box["y_center"])))
