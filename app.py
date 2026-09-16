@@ -28,9 +28,19 @@ def load_config():
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
             data = yaml.safe_load(f)
-            # Configura os caminhos de origem e destino com base no arquivo YAML
-            CURRENT_CONFIG["source_dir"] = data.get("path_captured", CURRENT_CONFIG["source_dir"])
-            CURRENT_CONFIG["target_dir"] = data.get("path_cured", CURRENT_CONFIG["target_dir"])
+
+            path_captured = data.get("path_captured", CURRENT_CONFIG["source_dir"])
+            path_cured = data.get("path_cured", CURRENT_CONFIG["target_dir"])
+
+            if path_captured and os.path.exists(path_captured):
+                CURRENT_CONFIG["source_dir"] = path_captured
+            else:
+                print(f"⚠️ Caminho de origem inválido ou não encontrado: {path_captured}. Usando o caminho padrão.")
+
+            if path_cured and os.path.exists(path_cured):
+                CURRENT_CONFIG["target_dir"] = path_cured
+            else:
+                print(f"⚠️ Caminho de destino inválido ou não encontrado: {path_cured}. Usando o caminho padrão.")
 
             CLASS_NAMES.update(data.get("classes", {}))
 
@@ -66,35 +76,50 @@ def extract_timestamp(filename_or_path: str) -> float:
 def index():
     return render_template('index.html')
 
-@app.route('/api/config', methods=['GET', 'POST'])
+@app.route('/curadoria/favicon.png')
+def favicon():
+    caminho_icone = os.path.join(BASE_DIR, 'assets', 'icons.png')
+    return send_file(caminho_icone, mimetype='image/png')
+
+@app.route('/api/config', methods=['GET'])
 def manage_config():
-    """Lê ou atualiza as pastas configuradas dinamicamente."""
-
-    if request.method == 'POST':
-        data = request.json or {}
-        new_source = data.get("source_dir", "").strip()
-        new_target = data.get("target_dir", "").strip()
-
-        if not new_source or not new_target:
-            return jsonify({"error": "Os dois diretórios devem ser preenchidos."}), 400
-
-        if not os.path.isdir(new_source):
-            return jsonify({"error": f"O diretório de origem não existe: {new_source}"}), 400
-
-        CURRENT_CONFIG["source_dir"] = new_source
-        CURRENT_CONFIG["target_dir"] = new_target
-
-        # Garante a criação das pastas de destino, caso não existam
-        tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl = get_target_paths()
-        for path in (tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl):
-            os.makedirs(path, exist_ok=True)
-
-        return jsonify({"status": "sucesso", "config": CURRENT_CONFIG})
-
+    """Lê as pastas configuradas dinamicamente."""
     return jsonify(CURRENT_CONFIG)
+
+@app.route('/api/config', methods=['POST'])
+def update_config():
+    data = request.json or {}
+    new_source = data.get("source_dir", "").strip()
+    new_target = data.get("target_dir", "").strip()
+
+    if not new_source or not new_target:
+        return jsonify({"error": "Os dois diretórios devem ser preenchidos."}), 400
+
+    if not os.path.isdir(new_source):
+        return jsonify({"error": f"O diretório de origem não existe: {new_source}"}), 400
+
+    CURRENT_CONFIG["source_dir"] = new_source
+    CURRENT_CONFIG["target_dir"] = new_target
+    
+
+    tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl = get_target_paths()
+    for path in (tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl):
+        os.makedirs(path, exist_ok=True)
+
+    config_data = {
+        "path_captured": new_source,
+        "path_cured": new_target,
+        "classes": CURRENT_CONFIG["classes"]
+    }
+
+    with open("config.yaml", "w") as f:
+        yaml.dump(config_data, f)
+
+    return jsonify({"status": "sucesso", "config": CURRENT_CONFIG})
 
 @app.route('/api/classes', methods=['GET'])
 def get_classes():
+    print("Retornando classes configuradas:", CLASS_NAMES)
     return jsonify([{"id": key, "name": value} for key, value in CLASS_NAMES.items()])
 
 @app.route('/api/samples/count', methods=['GET'])
@@ -229,7 +254,7 @@ def save_and_move():
     label_file = dados.get("label_file")
     boxes = dados.get("boxes", [])
     aplicar_augmentation = dados.get("apply_augmentation", False)
-    permitir_val_split = dados.get("allow_validation_split", True)
+    permitir_val_split = dados.get("allow_validation_split", False)
     split = dados.get("split", None)
 
     # Recebe os diretórios de origem e destino das imagens e labels
