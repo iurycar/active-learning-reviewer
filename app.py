@@ -91,12 +91,17 @@ def update_config():
     data = request.json or {}
     new_source = data.get("source_dir", "").strip()
     new_target = data.get("target_dir", "").strip()
+    new_classes = data.get("classes", {})
 
     if not new_source or not new_target:
         return jsonify({"error": "Os dois diretórios devem ser preenchidos."}), 400
 
     if not os.path.isdir(new_source):
         return jsonify({"error": f"O diretório de origem não existe: {new_source}"}), 400
+
+    if new_classes and isinstance(new_classes, dict) and all(isinstance(k, int) and isinstance(v, str) for k, v in new_classes.items()):
+        CLASS_NAMES.clear()
+        CLASS_NAMES.update(new_classes)
 
     CURRENT_CONFIG["source_dir"] = new_source
     CURRENT_CONFIG["target_dir"] = new_target
@@ -106,11 +111,18 @@ def update_config():
     for path in (tgt_img, tgt_lbl, tgt_val_img, tgt_val_lbl):
         os.makedirs(path, exist_ok=True)
 
-    config_data = {
-        "path_captured": new_source,
-        "path_cured": new_target,
-        "classes": CURRENT_CONFIG["classes"]
-    }
+    if new_classes != {}:
+        config_data = {
+            "path_captured": new_source,
+            "path_cured": new_target,
+            "classes": new_classes
+        }
+    else:
+        config_data = {
+            "path_captured": new_source,
+            "path_cured": new_target,
+            "classes": CLASS_NAMES
+        }
 
     with open("config.yaml", "w") as f:
         yaml.dump(config_data, f)
