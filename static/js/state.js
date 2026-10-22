@@ -51,7 +51,6 @@ export const DEFAULT_PALETTE = {
     10: [255, 128, 0],
     11: [255, 150, 80],
     12: [128, 0, 128],
-    13: [126, 0, 50],
 };
 
 export const customColors = JSON.parse(localStorage.getItem('custom_class_colors') || '{}');

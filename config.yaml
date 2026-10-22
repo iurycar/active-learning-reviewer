@@ -12,7 +12,6 @@ classes:
   10: Com_colete
   11: Sem_colete
   12: Com_chapeu
-  13: Pessoa_caida
   
 path_captured: /home/iury/Downloads/dataset_captura_21_10/dataset/iury
 path_cured: /home/iury/Documents/Challenge 2026/backend-SPI/assets/modelo/active_learning/dataset_tratado
