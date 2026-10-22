@@ -12,5 +12,7 @@ classes:
   10: Com_colete
   11: Sem_colete
   12: Com_chapeu
-path_captured: /mnt/Arquivos/Engenharia/Challenge 2026/backend-SPI/assets/modelo/active_learning/dataset_captura/Liora/VANESSA
-path_cured: /mnt/Arquivos/Engenharia/Challenge 2026/active-learning-reviewer/active-learning-reviewer/data/cured
+  13: Pessoa_caida
+  
+path_captured: /home/iury/Downloads/dataset_captura_21_10/dataset/iury
+path_cured: /home/iury/Documents/Challenge 2026/backend-SPI/assets/modelo/active_learning/dataset_tratado
